@@ -1,0 +1,37 @@
+:root { --bg:#1b1d22; --card:#262931; --text:#eceef2; --muted:#9aa0ab; --ok:#3fb27f; --bad:#e0605a; --accent:#7aa2f7; }
+* { box-sizing:border-box; }
+[hidden] { display:none !important; }   /* section{display:flex} must not override hidden */
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text);
+  font:17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overscroll-behavior:none; }
+#app { max-width:520px; margin:0 auto; min-height:100%; padding:16px; display:flex; flex-direction:column; }
+section { display:flex; flex-direction:column; gap:14px; flex:1; }
+h1 { margin:8px 0 0; font-size:1.6rem; }
+.muted { color:var(--muted); margin:0; } .small { font-size:.85rem; }
+label { display:flex; flex-direction:column; gap:6px; font-size:.9rem; color:var(--muted); }
+input, textarea { background:var(--card); color:var(--text); border:1px solid #3a3e48; border-radius:10px; padding:12px; font:inherit; }
+textarea { min-height:64px; resize:vertical; }
+button { background:var(--accent); color:#111; border:0; border-radius:12px; padding:14px; font:600 1rem system-ui; }
+button.link { background:none; color:var(--muted); font-weight:400; padding:6px; }
+#play { gap:10px; }
+#card, #explainCard { touch-action:none; user-select:none; -webkit-user-select:none; }
+#stack { flex:1; display:flex; align-items:stretch; }
+#card { flex:1; background:var(--card); border-radius:18px; padding:22px 20px; display:flex; flex-direction:column; gap:16px;
+  box-shadow:0 8px 30px rgba(0,0,0,.35); will-change:transform; overflow-y:auto; }
+#card.snap { transition:transform .25s ease; }
+.family { font-size:.8rem; letter-spacing:.04em; text-transform:uppercase; color:var(--accent); }
+.statement { font-size:1.2rem; }
+.result { font-weight:700; font-size:1.1rem; }
+.result.ok { color:var(--ok); } .result.bad { color:var(--bad); }
+.why { border-top:1px solid #3a3e48; padding-top:12px; font-size:.95rem; }
+.why p { margin:0 0 8px; } .why ul { margin:0; padding-left:20px; }
+#card.tilt-true { box-shadow:0 0 0 3px var(--ok); } #card.tilt-false { box-shadow:0 0 0 3px var(--bad); }
+.wrong { background:var(--card); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+.wrong .st { font-size:.95rem; } .wrong .ans { font-size:.85rem; color:var(--muted); }
+.row { display:flex; gap:10px; align-items:center; justify-content:space-between; }
+.row > button:not(.link) { flex:1; }
+button.ghost { background:none; color:var(--text); border:1px solid #3a3e48; }
+#explainCard { box-shadow:0 8px 30px rgba(0,0,0,.35); will-change:transform; }
+#explainCard.snap { transition:transform .25s ease; }
+#explainCard textarea { user-select:text; -webkit-user-select:text; touch-action:auto; min-height:110px; }
+#explainCard.tilt-true { box-shadow:0 0 0 3px var(--ok); } #explainCard.tilt-later { box-shadow:0 0 0 3px var(--muted); }
+#explainCard .row button { padding:8px; font-size:.85rem; }

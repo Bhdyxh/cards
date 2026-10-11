@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+<meta name="theme-color" content="#1b1d22">
+<title>Cards</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+  <section id="setup" hidden>
+    <h1>Cards</h1>
+    <p class="muted">One-time setup on this phone.</p>
+    <label>Repo <input id="repo" placeholder="owner/repo" autocapitalize="off" autocomplete="off"></label>
+    <label>Key <input id="token" type="password" placeholder="github_pat_…" autocomplete="off"></label>
+    <button id="saveSetup">Save</button>
+    <p class="muted small">The key stays only in this browser.</p>
+  </section>
+
+  <section id="home" hidden>
+    <h1>Cards</h1>
+    <p id="homeInfo" class="muted"></p>
+    <button id="start">Start a round</button>
+    <button id="explainLater" class="ghost" hidden></button>
+    <p id="pending" class="muted small"></p>
+    <button id="forget" class="link">Forget key</button>
+  </section>
+
+  <section id="play" hidden>
+    <div id="progress" class="muted small"></div>
+    <div id="stack">
+      <article id="card">
+        <div id="family" class="family"></div>
+        <div id="statement" class="statement"></div>
+        <div id="result" class="result" hidden></div>
+        <div id="why" class="why" hidden></div>
+      </article>
+    </div>
+    <div id="hint" class="muted small"></div>
+  </section>
+
+  <section id="end" hidden>
+    <div class="row"><h1 id="score"></h1><button id="allLater" class="link">Fill all later</button></div>
+    <p id="explainCount" class="muted small"></p>
+    <div id="explainCard" class="wrong">
+      <div id="exFamily" class="family"></div>
+      <div id="exStatement" class="st"></div>
+      <div id="exAnswer" class="ans"></div>
+      <textarea id="exWhy" placeholder="Why did I think that? (optional, any language)"></textarea>
+      <p class="muted small">← later · save &amp; next → · ↓ back</p>
+      <div class="row"><button id="backOne" class="ghost">Back</button><button id="laterOne" class="ghost">Later</button><button id="nextOne">Save &amp; next</button></div>
+    </div>
+    <p id="saveMsg" class="muted small"></p>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
