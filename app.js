@@ -311,7 +311,7 @@ $("saveSetup").onclick = () => {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) { alert("Enter repo as owner/name and the key."); return; }
   store.set("setup", { repo, token }); home();
 };
-$("forget").onclick = () => { if (confirm("Remove the key from this phone?")) { store.del("setup"); store.del("questions"); show("setup"); } };
+$("forget").onclick = () => { if (confirm("Key settings\n\nRemove the key from this phone? Use this when the key has expired (you'll paste a new one) or if the phone is lost.")) { store.del("setup"); store.del("questions"); show("setup"); } };
 $("start").onclick = start;
 $("explainLater").onclick = explainLaterPile;
 

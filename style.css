@@ -28,7 +28,8 @@ button.link { background:none; color:var(--muted); font-weight:400; padding:6px;
 .row.btns > button { flex:1; padding:9px; font-size:.85rem; }
 
 /* home */
-#home { justify-content:space-between; }
+#home { justify-content:space-between; position:relative; }
+.gear { position:absolute; top:0; right:0; background:none; color:var(--muted); padding:8px 10px; font-size:1.2rem; opacity:.55; }
 .homeTop { display:flex; flex-direction:column; gap:10px; padding-top:12vh; }
 .homeBottom { display:flex; flex-direction:column; gap:10px; }
 .greet { margin:0; font:1.15rem/1.4 var(--serif); color:var(--text); }
