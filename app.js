@@ -20,15 +20,16 @@ const gh = (path, opts = {}) => {
 };
 const b64 = str => { let bin = ""; for (const b of new TextEncoder().encode(str)) bin += String.fromCharCode(b); return btoa(bin); };
 
-let testMode = false;                   // true when questions.json sits next to the page (laptop testing only)
+let testMode = false, lastError = "";                   // true when questions.json sits next to the page (laptop testing only)
 
 async function loadQuestions() {
   if (store.get("setup")) {
     try {
       const r = await gh("questions.json", { headers: { Accept: "application/vnd.github.raw+json" } });
-      if (!r.ok) throw new Error(r.status);
+      if (!r.ok) throw new Error(r.status === 401 ? "401: the key is wrong or expired" :
+        r.status === 404 ? "404: the key can't see this repo (check repo name, and that the key has cards-data + Contents)" : "error " + r.status);
       const qs = await r.json(); store.set("questions", qs); return qs;
-    } catch (e) { const c = store.get("questions"); if (c) return c; throw e; }
+    } catch (e) { lastError = e.message; const c = store.get("questions"); if (c) return c; throw e; }
   }
   const r = await fetch("questions.json", { cache: "no-store" });
   if (!r.ok) return null;
@@ -81,7 +82,7 @@ async function home() {
   show("home");
   $("homeInfo").textContent = "Loading…";
   try { questions = await loadQuestions(); } catch { questions = null; }
-  if (!questions) { if (!store.get("setup")) return show("setup"); $("homeInfo").textContent = "Couldn't load questions. Check the key or the internet."; return; }
+  if (!questions) { if (!store.get("setup")) return show("setup"); $("homeInfo").textContent = "Couldn't load questions. " + (lastError || "No internet?"); return; }
   const fams = [...new Set(questions.map(q => q.family))];
   $("homeInfo").textContent = `${questions.length} cards · ${fams.join(" · ")}` + (testMode ? " · test mode (nothing is saved)" : "");
   $("forget").hidden = testMode;
