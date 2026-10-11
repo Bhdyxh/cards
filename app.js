@@ -11,6 +11,10 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
+// one-time wipe of study data on the phone (key and cached questions are kept). Change the value to wipe again.
+const FRESH = "fresh-start-2026-10-12";
+if (store.get("fresh") !== FRESH) { ["later", "pending", "today"].forEach(store.del); store.set("fresh", FRESH); }
+
 // ---------- GitHub ----------
 const gh = (path, opts = {}) => {
   const s = store.get("setup");
