@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content">
 <meta name="robots" content="noindex, nofollow">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.github.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
-<meta name="theme-color" content="#1b1d22">
+<meta name="theme-color" content="#1a1512">
 <title>Cards</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
@@ -23,37 +23,47 @@
   </section>
 
   <section id="home" hidden>
-    <h1>Cards</h1>
-    <p id="homeInfo" class="muted"></p>
-    <button id="start">Start a round</button>
-    <button id="explainLater" class="ghost" hidden></button>
-    <p id="pending" class="muted small"></p>
-    <button id="forget" class="link">Forget key</button>
+    <div class="homeTop">
+      <h1>Cards</h1>
+      <p id="greet" class="greet"></p>
+      <p id="today" class="muted"></p>
+      <div id="chips" class="chips"></div>
+      <p id="homeInfo" class="muted small"></p>
+    </div>
+    <div class="homeBottom">
+      <button id="start">Start a round</button>
+      <button id="explainLater" class="ghost" hidden></button>
+      <p id="pending" class="muted small"></p>
+      <button id="forget" class="link">Forget key</button>
+    </div>
   </section>
 
   <section id="play" hidden>
-    <div id="progress" class="muted small"></div>
+    <div class="bar"><div id="barFill"></div></div>
     <div id="stack">
       <article id="card">
-        <div id="family" class="family"></div>
+        <div id="band" class="band" hidden></div>
+        <span id="family" class="chip"></span>
         <div id="statement" class="statement"></div>
-        <div id="result" class="result" hidden></div>
         <div id="why" class="why" hidden></div>
+        <div id="stampTrue" class="stamp true">TRUE ✓</div>
+        <div id="stampFalse" class="stamp false">✗ FALSE</div>
+        <div id="whyTab" class="whyTab" hidden>↑ Why</div>
       </article>
     </div>
-    <div id="hint" class="muted small"></div>
+    <div id="hint" class="hint"></div>
   </section>
 
   <section id="end" hidden>
-    <div class="row"><h1 id="score"></h1><button id="allLater" class="link">Fill all later</button></div>
+    <div class="row"><div><h1 id="endTitle"></h1><p id="endSub" class="muted small"></p></div><button id="allLater" class="link">Fill all later</button></div>
     <p id="explainCount" class="muted small"></p>
-    <div id="explainCard" class="wrong">
-      <div id="exFamily" class="family"></div>
-      <div id="exStatement" class="st"></div>
+    <div id="explainCard" class="exCard">
+      <span id="exFamily" class="chip"></span>
+      <div id="exStatement" class="exStatement"></div>
       <div id="exAnswer" class="ans"></div>
       <textarea id="exWhy" placeholder="Why did I think that? (optional, any language)"></textarea>
       <p class="muted small">← later · save &amp; next → · ↓ back</p>
-      <div class="row"><button id="backOne" class="ghost">Back</button><button id="laterOne" class="ghost">Later</button><button id="nextOne">Save &amp; next</button></div>
+      <div class="row btns"><button id="backOne" class="ghost">Back</button><button id="laterOne" class="ghost">Later</button><button id="nextOne">Save &amp; next</button></div>
     </div>
     <p id="saveMsg" class="muted small"></p>
   </section>

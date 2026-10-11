@@ -74,6 +74,12 @@ function md(text) {
   return html + (inList ? "</ul>" : "");
 }
 
+// ---------- today: only what's done, never what's left ----------
+const todayKey = () => new Date().toLocaleDateString("en-CA");
+const today = () => { const t = store.get("today", {}); return t.day === todayKey() ? t : { day: todayKey(), rounds: 0, cards: 0 }; };
+const bump = (k, n = 1) => { const t = today(); t[k] += n; store.set("today", t); };
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch {} };
+
 // ---------- screens ----------
 const show = id => { ["setup", "home", "play", "end"].forEach(s => $(s).hidden = s !== id); window.scrollTo(0, 0); };
 let questions = [], round = [], idx = 0, phase = "q", answers = [];
@@ -84,7 +90,11 @@ async function home() {
   try { questions = await loadQuestions(); } catch { questions = null; }
   if (!questions) { if (!store.get("setup")) return show("setup"); $("homeInfo").textContent = "Couldn't load questions. " + (lastError || "No internet?"); return; }
   const fams = [...new Set(questions.map(q => q.family))];
-  $("homeInfo").textContent = `${questions.length} cards · ${fams.join(" · ")}` + (testMode ? " · test mode (nothing is saved)" : "");
+  const h = new Date().getHours(), t = today();
+  $("greet").textContent = h < 12 ? "Good morning. A few cards?" : h < 17 ? "A few idle minutes? Swipe a few." : "Evening. Just a handful, if you like.";
+  $("today").textContent = t.rounds ? `Today: ${t.rounds} round${t.rounds > 1 ? "s" : ""} · ${t.cards} cards` : "";
+  $("chips").innerHTML = fams.map(f => `<span class="chip">${esc(f)}</span>`).join("");
+  $("homeInfo").textContent = testMode ? "Test mode: nothing is uploaded" : "";
   $("forget").hidden = testMode;
   const later = store.get("later", []).length;
   $("explainLater").hidden = !later;
@@ -97,29 +107,32 @@ function start() { round = pickRound(questions); idx = 0; answers = []; show("pl
 
 function render() {
   const q = round[idx]; phase = "q";
-  $("progress").textContent = `${idx + 1} / ${round.length}`;
+  $("barFill").style.width = `${(idx / round.length) * 100}%`;
   $("family").textContent = q.family;
   $("statement").textContent = q.statement;
-  $("result").hidden = true; $("why").hidden = true;
-  $("hint").textContent = "← false · true →";
+  $("band").hidden = true; $("why").hidden = true; $("whyTab").hidden = true;
+  card.classList.remove("answered", "ok", "bad"); stamps(0);
+  $("hint").textContent = idx < 2 && !today().cards ? "← false · true →   (a quick flick works too)" : "← false · true →";
   resetCard();
 }
 
 function answer(said) {
   const q = round[idx], right = said === q.answer;
   answers.push({ q, said, right }); phase = "a";
-  const r = $("result");
-  r.hidden = false; r.className = "result " + (right ? "ok" : "bad");
-  r.textContent = (right ? "✓ Right" : "✗ Wrong") + ` — it's ${q.answer ? "TRUE" : "FALSE"}`;
+  const b = $("band");
+  b.hidden = false; b.className = "band " + (right ? "ok" : "bad");
+  b.textContent = right ? `✓ Right, it's ${q.answer ? "TRUE" : "FALSE"}` : `✗ It's ${q.answer ? "TRUE" : "FALSE"}`;
+  card.classList.add("answered", right ? "ok" : "bad"); stamps(0);
+  $("whyTab").hidden = false; bump("cards"); buzz(right ? 15 : [35, 70, 35]);
   card.classList.remove("pulse-ok", "pulse-bad"); void card.offsetWidth; card.classList.add(right ? "pulse-ok" : "pulse-bad");
-  $("hint").textContent = "↑ why · ↓ thumb slip · swipe sideways for next";
+  $("hint").textContent = "↑ why · ↓ thumb slip · sideways for next";
 }
 
 function showWhy() {
   const q = round[idx];
   $("why").innerHTML = (q.hack ? `<p><b>Hack:</b> ${esc(q.hack).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")}</p>` : "") + md(q.reality) +
     `<p class="muted small">From: ${esc(q.source)}</p>`;
-  $("why").hidden = false;
+  $("why").hidden = false; $("whyTab").hidden = true;
 }
 
 function next() { dragging = false; idx++; if (idx < round.length) render(); else end(); }
@@ -154,6 +167,7 @@ function explain(queue, onDone) {
   $("backOne").onclick = () => { if (i > 0) { i--; draw(); } };
   $("allLater").onclick = () => { while (i < queue.length) { done[i] = done[i] && done[i].why ? done[i] : { ...queue[i], why: "", later: true }; i++; } draw(); };
   $("explainCard").hidden = false; $("allLater").hidden = false; $("saveMsg").textContent = "";
+  $("exWhy").onfocus = () => setTimeout(() => $("exWhy").scrollIntoView({ block: "center", behavior: "smooth" }), 300);
   draw();
 }
 
@@ -173,19 +187,21 @@ const stampNow = () => new Date().toISOString().slice(0, 16).replace(":", "-");
 function end() {
   const wrong = answers.filter(a => !a.right);
   const score = `${answers.length - wrong.length} / ${answers.length}`;
-  $("score").textContent = score;
+  bump("rounds"); $("barFill").style.width = "100%";
+  $("endTitle").textContent = wrong.length ? `${wrong.length} mistake${wrong.length > 1 ? "s" : ""} caught` : "Clean round ✨";
+  $("endSub").textContent = wrong.length ? `That's the good stuff: each one is something to fix before the exam. Score ${score}` : `Score ${score}`;
   const stamp = stampNow();
   const queue = wrong.map(a => ({ round: stamp, id: a.q.id, family: a.q.family, statement: a.q.statement,
     correct: a.q.answer, said: a.said, source: a.q.source }));
   const finish = done => save({ stamp, type: "round", score: score.replace(/ /g, ""), mistakes: done },
     done.filter(d => d.later));
-  if (!queue.length) { show("end"); $("score").textContent = score + " · no mistakes"; return save({ stamp, type: "round", score, mistakes: [] }, []); }
+  if (!queue.length) { show("end"); return save({ stamp, type: "round", score, mistakes: [] }, []); }
   explain(queue, finish);
 }
 
 function explainLaterPile() {
   const pile = store.get("later", []);
-  $("score").textContent = "Explain later";
+  $("endTitle").textContent = "Explain later"; $("endSub").textContent = "One at a time, no rush.";
   explain(pile, done => {
     const filled = done.filter(d => !d.later);
     store.set("later", done.filter(d => d.later));                    // still-later ones stay in the pile
@@ -215,26 +231,37 @@ function fly(el, dx, dy, then) {
     }));
   }, 230);
 }
+function stamps(x) {
+  const k = Math.min(Math.abs(x) / TH, 1);
+  $("stampTrue").style.opacity = x > 0 ? k : 0; $("stampFalse").style.opacity = x < 0 ? k : 0;
+}
+// a quick flick counts like a long drag: speed over the last ~100 ms
+let track = [];
+const flickSpeed = () => { const a = track[0], b = track[track.length - 1]; if (!a || b.t - a.t < 10) return { vx: 0, vy: 0 };
+  return { vx: (b.x - a.x) / (b.t - a.t), vy: (b.y - a.y) / (b.t - a.t) }; };
+const FLICK = 0.6;   // px per ms
 function resetCard() { card.classList.add("snap"); card.style.transform = ""; card.classList.remove("tilt-true", "tilt-false"); }
-card.addEventListener("pointerdown", e => { dragging = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; card.classList.remove("snap"); lastPointer = e.pointerId; card.setPointerCapture(e.pointerId); });
+card.addEventListener("pointerdown", e => { dragging = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; track = [{ x: e.clientX, y: e.clientY, t: e.timeStamp }]; card.classList.remove("snap"); lastPointer = e.pointerId; card.setPointerCapture(e.pointerId); });
 card.addEventListener("pointermove", e => {
   if (!dragging) return;
   dx = e.clientX - sx; dy = e.clientY - sy;
+  track.push({ x: e.clientX, y: e.clientY, t: e.timeStamp }); while (track.length > 2 && e.timeStamp - track[0].t > 100) track.shift();
   if (Math.abs(dx) > Math.abs(dy)) {
     card.style.transform = `translateX(${dx}px) rotate(${dx / 20}deg)`;
-    if (phase === "q") { card.classList.toggle("tilt-true", dx > TH); card.classList.toggle("tilt-false", dx < -TH); }
+    if (phase === "q") stamps(dx);
   }
 });
 function release() {
   if (!dragging) return; dragging = false;
-  const horiz = Math.abs(dx) > Math.abs(dy);
+  const horiz = Math.abs(dx) > Math.abs(dy), { vx, vy } = flickSpeed();
   try { card.releasePointerCapture(lastPointer); } catch {}
-  if (horiz && Math.abs(dx) > TH) {
+  // a far drag or a quick flick both count
+  if (horiz && (Math.abs(dx) > TH || (Math.abs(vx) > FLICK && Math.abs(dx) > 25))) {
     if (phase === "q") { resetCard(); answer(dx > 0); }
     else fly(card, Math.sign(dx), 0, next);
-  } else if (!horiz && dy < -TH && phase === "a") { resetCard(); showWhy(); }
-  else if (!horiz && dy > TH && phase === "a") { fly(card, 0, 1, slip); }
-  else resetCard();
+  } else if (!horiz && (dy < -TH || (vy < -FLICK && dy < -25)) && phase === "a") { resetCard(); showWhy(); }
+  else if (!horiz && (dy > TH || (vy > FLICK && dy > 25)) && phase === "a") { fly(card, 0, 1, slip); }
+  else { resetCard(); stamps(0); }
 }
 card.addEventListener("pointerup", release);
 card.addEventListener("pointercancel", release);
