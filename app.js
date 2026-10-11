@@ -111,6 +111,7 @@ function answer(said) {
   const r = $("result");
   r.hidden = false; r.className = "result " + (right ? "ok" : "bad");
   r.textContent = (right ? "✓ Right" : "✗ Wrong") + ` — it's ${q.answer ? "TRUE" : "FALSE"}`;
+  card.classList.remove("pulse-ok", "pulse-bad"); void card.offsetWidth; card.classList.add(right ? "pulse-ok" : "pulse-bad");
   $("hint").textContent = "↑ why · ↓ thumb slip · swipe sideways for next";
 }
 
@@ -129,8 +130,7 @@ function slip() {
   if (q._slipped) { $("hint").textContent = "Already re-asked once · swipe sideways for next"; return; }
   answers.pop();
   round.push({ ...q, _slipped: true });
-  $("hint").textContent = "Slip noted: it comes back at the end";
-  setTimeout(next, 600);
+  next();
 }
 
 // ---------- explaining mistakes: one card at a time, or "later" ----------
@@ -201,6 +201,20 @@ function explainLaterPile() {
 const card = $("card");
 let sx = 0, sy = 0, dx = 0, dy = 0, dragging = false, lastPointer = null;
 const TH = 80;
+// card leaves the screen in the swipe direction, then the next card rises in
+function fly(el, dx, dy, then) {
+  el.classList.add("snap");
+  el.style.transform = `translate(${dx * 130}vw, ${dy * 110}vh) rotate(${dx * 22}deg)`;
+  el.style.opacity = "0";
+  setTimeout(() => {
+    then();
+    el.classList.remove("snap", "tilt-true", "tilt-false", "tilt-later");
+    el.style.transform = "translateY(14px) scale(.94)"; el.style.opacity = "1";
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      el.classList.add("snap"); el.style.transform = "";
+    }));
+  }, 230);
+}
 function resetCard() { card.classList.add("snap"); card.style.transform = ""; card.classList.remove("tilt-true", "tilt-false"); }
 card.addEventListener("pointerdown", e => { dragging = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; card.classList.remove("snap"); lastPointer = e.pointerId; card.setPointerCapture(e.pointerId); });
 card.addEventListener("pointermove", e => {
@@ -217,18 +231,18 @@ function release() {
   try { card.releasePointerCapture(lastPointer); } catch {}
   if (horiz && Math.abs(dx) > TH) {
     if (phase === "q") { resetCard(); answer(dx > 0); }
-    else next();
+    else fly(card, Math.sign(dx), 0, next);
   } else if (!horiz && dy < -TH && phase === "a") { resetCard(); showWhy(); }
-  else if (!horiz && dy > TH && phase === "a") { resetCard(); slip(); }
+  else if (!horiz && dy > TH && phase === "a") { fly(card, 0, 1, slip); }
   else resetCard();
 }
 card.addEventListener("pointerup", release);
 card.addEventListener("pointercancel", release);
 document.addEventListener("keydown", e => {            // laptop testing
   if ($("play").hidden) return;
-  if (e.key === "ArrowRight" || e.key === "ArrowLeft") phase === "q" ? answer(e.key === "ArrowRight") : next();
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") phase === "q" ? answer(e.key === "ArrowRight") : fly(card, e.key === "ArrowRight" ? 1 : -1, 0, next);
   if (e.key === "ArrowUp" && phase === "a") showWhy();
-  if (e.key === "ArrowDown" && phase === "a") slip();
+  if (e.key === "ArrowDown" && phase === "a") fly(card, 0, 1, slip);
 });
 
 // ---------- gestures on the explain card: → save & next, ← later ----------
@@ -251,10 +265,11 @@ function exRelease(e) {
   if (!ex0) return;
   const d = e.clientX - ex0.x, down = e.clientY - ex0.y, horiz = Math.abs(d) > Math.abs(down);
   try { ex.releasePointerCapture(ex0.id); } catch {}
-  ex0 = null; ex.classList.add("snap"); ex.style.transform = ""; ex.classList.remove("tilt-true", "tilt-later");
-  if (horiz && d > TH) $("nextOne").click();
-  else if (horiz && d < -TH) $("laterOne").click();
-  else if (!horiz && down > TH) $("backOne").click();
+  ex0 = null;
+  if (horiz && d > TH) fly(ex, 1, 0, () => $("nextOne").click());
+  else if (horiz && d < -TH) fly(ex, -1, 0, () => $("laterOne").click());
+  else if (!horiz && down > TH) fly(ex, 0, 1, () => $("backOne").click());
+  else { ex.classList.add("snap"); ex.style.transform = ""; ex.classList.remove("tilt-true", "tilt-later"); }
 }
 ex.addEventListener("pointerup", exRelease);
 ex.addEventListener("pointercancel", exRelease);

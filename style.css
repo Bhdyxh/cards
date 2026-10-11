@@ -17,7 +17,7 @@ button.link { background:none; color:var(--muted); font-weight:400; padding:6px;
 #stack { flex:1; display:flex; align-items:stretch; }
 #card { flex:1; background:var(--card); border-radius:18px; padding:22px 20px; display:flex; flex-direction:column; gap:16px;
   box-shadow:0 8px 30px rgba(0,0,0,.35); will-change:transform; overflow-y:auto; }
-#card.snap { transition:transform .25s ease; }
+#card.snap { transition:transform .25s ease, opacity .25s ease; }
 .family { font-size:.8rem; letter-spacing:.04em; text-transform:uppercase; color:var(--accent); }
 .statement { font-size:1.2rem; }
 .result { font-weight:700; font-size:1.1rem; }
@@ -31,7 +31,17 @@ button.link { background:none; color:var(--muted); font-weight:400; padding:6px;
 .row > button:not(.link) { flex:1; }
 button.ghost { background:none; color:var(--text); border:1px solid #3a3e48; }
 #explainCard { box-shadow:0 8px 30px rgba(0,0,0,.35); will-change:transform; }
-#explainCard.snap { transition:transform .25s ease; }
+#explainCard.snap { transition:transform .25s ease, opacity .25s ease; }
 #explainCard textarea { user-select:text; -webkit-user-select:text; touch-action:auto; min-height:110px; }
 #explainCard.tilt-true { box-shadow:0 0 0 3px var(--ok); } #explainCard.tilt-later { box-shadow:0 0 0 3px var(--muted); }
 #explainCard .row button { padding:8px; font-size:.85rem; }
+@keyframes pulseOk { 0% { box-shadow:0 0 0 0 rgba(63,178,127,.7); } 100% { box-shadow:0 0 0 14px rgba(63,178,127,0); } }
+@keyframes pulseBad { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-7px); } 75% { transform:translateX(7px); } }
+#card.pulse-ok { animation:pulseOk .5s ease-out; } #card.pulse-bad { animation:pulseBad .3s ease-in-out 2; }
+body { overflow-x:hidden; }
+/* the next card waits behind the current one, so a swipe visibly uncovers it */
+#stack { position:relative; }
+#stack::before, #stack::after { content:""; position:absolute; left:14px; right:14px; top:14px; bottom:-10px;
+  background:#2d3039; border-radius:18px; z-index:0; }
+#stack::after { left:28px; right:28px; top:28px; bottom:-20px; background:#22252c; z-index:-1; }
+#card { position:relative; z-index:1; }
