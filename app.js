@@ -1,7 +1,8 @@
 // Cards: swipe true/false quiz. Questions and mistakes live in a private GitHub repo;
 // this code holds no secrets. The key is pasted once and kept only in this browser.
 "use strict";
-const ROUND = 20;                       // cards per round
+const ROUND = 10;                       // cards per round
+const REST_AFTER = 3, REST_DAYS = 14;   // right this many times in a row (and sure) → the card rests this many days
 const $ = id => document.getElementById(id);
 
 // ---------- storage (always wrapped: private windows can block it) ----------
@@ -16,24 +17,36 @@ const FRESH = "fresh-start-2026-10-12";
 if (store.get("fresh") !== FRESH) { ["later", "pending", "today"].forEach(store.del); store.set("fresh", FRESH); }
 
 // ---------- GitHub ----------
-const gh = (path, opts = {}) => {
-  const s = store.get("setup");
+// every call gives up after `ms`: on a weak signal the app never hangs waiting for GitHub
+const gh = (path, opts = {}, ms = 15000) => {
+  const s = store.get("setup"), stop = new AbortController(), timer = setTimeout(() => stop.abort(), ms);
   return fetch(`https://api.github.com/repos/${s.repo}/contents/${path}`, {
-    ...opts, headers: { Authorization: `Bearer ${s.token}`, Accept: "application/vnd.github+json", ...(opts.headers || {}) },
-  });
+    ...opts, signal: stop.signal, headers: { Authorization: `Bearer ${s.token}`, Accept: "application/vnd.github+json", ...(opts.headers || {}) },
+  }).finally(() => clearTimeout(timer));
 };
 const b64 = str => { let bin = ""; for (const b of new TextEncoder().encode(str)) bin += String.fromCharCode(b); return btoa(bin); };
 
-let testMode = false, lastError = "";                   // true when questions.json sits next to the page (laptop testing only)
+let testMode = false, offline = false, lastError = "";  // testMode: questions.json sits next to the page (laptop testing only)
+
+async function fetchQuestions(ms) {
+  const r = await gh("questions.json", { headers: { Accept: "application/vnd.github.raw+json" } }, ms);
+  if (!r.ok) throw new Error(r.status === 401 ? "401: the key is wrong or expired" :
+    r.status === 404 ? "404: the key can't see this repo (check repo name, and that the key has cards-data + Contents)" : "error " + r.status);
+  const qs = await r.json(); store.set("questions", qs); return qs;
+}
 
 async function loadQuestions() {
   if (store.get("setup")) {
-    try {
-      const r = await gh("questions.json", { headers: { Accept: "application/vnd.github.raw+json" } });
-      if (!r.ok) throw new Error(r.status === 401 ? "401: the key is wrong or expired" :
-        r.status === 404 ? "404: the key can't see this repo (check repo name, and that the key has cards-data + Contents)" : "error " + r.status);
-      const qs = await r.json(); store.set("questions", qs); return qs;
-    } catch (e) { lastError = e.message; const c = store.get("questions"); if (c) return c; throw e; }
+    const saved = store.get("questions");
+    offline = false;
+    try { return await fetchQuestions(saved ? 3000 : 20000); }    // with saved cards, wait only 3 s for fresh ones
+    catch (e) {
+      lastError = e.name === "AbortError" ? "no answer from GitHub" : e.message;
+      if (!saved) throw e;
+      offline = true;
+      fetchQuestions(30000).catch(() => {});                          // keep trying quietly; new cards show next time
+      return saved;
+    }
   }
   const r = await fetch("questions.json", { cache: "no-store" });
   if (!r.ok) return null;
@@ -54,8 +67,25 @@ async function uploadPending() {
   store.set("pending", left); return left.length;
 }
 
-// ---------- picking a round: rank-weighted, no repeats ----------
-function pickRound(qs) {
+// ---------- resting cards: right REST_AFTER times in a row (and sure) → away for REST_DAYS ----------
+const addDays = (key, n) => { const d = new Date(key + "T12:00:00"); d.setDate(d.getDate() + n); return d.toLocaleDateString("en-CA"); };
+const resting = () => { const r = store.get("rest", {}), now = todayKey(); return new Set(Object.keys(r).filter(id => r[id].until && r[id].until > now)); };
+function updateRest(answers) {
+  const r = store.get("rest", {}), now = todayKey(), rested = [];
+  for (const a of answers) {
+    const s = r[a.q.id] || { n: 0 };
+    if (a.right && !a.unsure) s.n += 1; else { s.n = 0; delete s.until; }
+    if (s.n >= REST_AFTER) { s.until = addDays(now, REST_DAYS); s.n = 0; rested.push(a.q.id); }
+    r[a.q.id] = s;
+  }
+  store.set("rest", r);
+  return rested;
+}
+
+// ---------- picking a round: rank-weighted, no repeats, resting cards left out ----------
+function pickRound(all) {
+  const away = resting(), awake = all.filter(q => !away.has(q.id));
+  const qs = awake.length >= ROUND ? awake : [...awake, ...all.filter(q => away.has(q.id))].slice(0, Math.max(ROUND, awake.length));
   const pool = qs.map(q => ({ q, w: (q.rank || 1) * (q.boost ? 1.5 : 1) }));
   const out = [];
   while (out.length < Math.min(ROUND, qs.length)) {
@@ -98,7 +128,9 @@ async function home() {
   $("greet").textContent = h < 12 ? "Good morning. A few cards?" : h < 17 ? "A few idle minutes? Swipe a few." : "Evening. Just a handful, if you like.";
   $("today").textContent = t.rounds ? `Today: ${t.rounds} round${t.rounds > 1 ? "s" : ""} · ${t.cards} cards` : "";
   $("chips").innerHTML = fams.map(f => `<span class="chip">${esc(f)}</span>`).join("");
-  $("homeInfo").textContent = testMode ? "Test mode: nothing is uploaded" : "";
+  const rest = resting().size;
+  $("homeInfo").textContent = [testMode ? "Test mode: nothing is uploaded" : "", offline ? "Offline: using the cards saved on this phone." : "",
+    rest ? `${rest} card${rest > 1 ? "s" : ""} you know well ${rest > 1 ? "are" : "is"} resting for now.` : ""].filter(Boolean).join(" ");
   $("forget").hidden = testMode;
   const later = store.get("later", []).length;
   $("explainLater").hidden = !later;
@@ -114,7 +146,7 @@ function render() {
   $("barFill").style.width = `${(idx / round.length) * 100}%`;
   $("family").textContent = q.family;
   $("statement").textContent = q.statement;
-  $("band").hidden = true; $("why").hidden = true; $("whyTab").hidden = true;
+  $("band").hidden = true; $("why").hidden = true; $("whyTab").hidden = true; $("unsure").hidden = true;
   card.classList.remove("answered", "ok", "bad"); stamps(0);
   $("hint").textContent = idx < 2 && !today().cards ? "← false · true →   (a quick flick works too)" : "← false · true →";
   resetCard();
@@ -130,7 +162,17 @@ function answer(said) {
   $("whyTab").hidden = false; bump("cards"); buzz(right ? 15 : [35, 70, 35]);
   card.classList.remove("pulse-ok", "pulse-bad"); void card.offsetWidth; card.classList.add(right ? "pulse-ok" : "pulse-bad");
   $("hint").textContent = "↑ why · ↓ thumb slip · sideways for next";
+  const u = $("unsure");                                   // a lucky guess can be explained too
+  u.hidden = !right; u.classList.remove("on"); u.textContent = "🤔 Right, but I wasn't sure";
 }
+
+$("unsure").onclick = () => {
+  const a = answers[answers.length - 1];
+  if (!a || !a.right) return;
+  a.unsure = !a.unsure;
+  $("unsure").classList.toggle("on", a.unsure);
+  $("unsure").textContent = a.unsure ? "🤔 Marked: you'll say why at the end (tap to undo)" : "🤔 Right, but I wasn't sure";
+};
 
 function showWhy() {
   const q = round[idx];
@@ -158,10 +200,13 @@ function explain(queue, onDone) {
   const draw = () => {
     if (i >= queue.length) return onDone(done);
     const m = queue[i];
-    $("explainCount").textContent = `Mistake ${i + 1} of ${queue.length}` + (i ? " · swipe ↓ to go back" : "");
+    const all = queue.every(q => !q.unsure) ? "Mistake" : queue.every(q => q.unsure) ? "Unsure card" : "Card";
+    $("explainCount").textContent = `${all} ${i + 1} of ${queue.length}` + (i ? " · swipe ↓ to go back" : "");
     $("exFamily").textContent = m.family;
     $("exStatement").textContent = m.statement;
-    $("exAnswer").textContent = `You said ${m.said ? "TRUE" : "FALSE"} · it's ${m.correct ? "TRUE" : "FALSE"}`;
+    $("exAnswer").textContent = m.unsure ? `You said ${m.said ? "TRUE" : "FALSE"} · right, but you weren't sure`
+      : `You said ${m.said ? "TRUE" : "FALSE"} · it's ${m.correct ? "TRUE" : "FALSE"}`;
+    $("exWhy").placeholder = m.unsure ? "What made you doubt it? (optional, any language)" : "Why did I think that? (optional, any language)";
     $("exWhy").value = done[i] ? done[i].why : "";                  // coming back: show what was written
   };
   const put = item => { done[i] = item; i++; draw(); };
@@ -189,17 +234,20 @@ async function save(rec, laterItems) {
 const stampNow = () => new Date().toISOString().slice(0, 16).replace(":", "-");
 
 function end() {
-  const wrong = answers.filter(a => !a.right);
+  const wrong = answers.filter(a => !a.right), unsure = answers.filter(a => a.right && a.unsure);
   const score = `${answers.length - wrong.length} / ${answers.length}`;
   bump("rounds"); $("barFill").style.width = "100%";
-  $("endTitle").textContent = wrong.length ? `${wrong.length} mistake${wrong.length > 1 ? "s" : ""} caught` : "Clean round ✨";
-  $("endSub").textContent = wrong.length ? `That's the good stuff: each one is something to fix before the exam. Score ${score}` : `Score ${score}`;
+  const rested = testMode ? [] : updateRest(answers);
+  const restNote = rested.length ? ` · ${rested.length} card${rested.length > 1 ? "s" : ""} you know well will rest for ${REST_DAYS} days` : "";
+  const parts = [wrong.length ? `${wrong.length} mistake${wrong.length > 1 ? "s" : ""} caught` : "", unsure.length ? `${unsure.length} unsure` : ""].filter(Boolean);
+  $("endTitle").textContent = parts.length ? parts.join(" · ") : "Clean round ✨";
+  $("endSub").textContent = (wrong.length ? `That's the good stuff: each one is something to fix before the exam. Score ${score}` : `Score ${score}`) + restNote;
   const stamp = stampNow();
-  const queue = wrong.map(a => ({ round: stamp, id: a.q.id, family: a.q.family, statement: a.q.statement,
-    correct: a.q.answer, said: a.said, source: a.q.source }));
-  const finish = done => save({ stamp, type: "round", score: score.replace(/ /g, ""), mistakes: done },
+  const queue = answers.filter(a => !a.right || a.unsure).map(a => ({ round: stamp, id: a.q.id, family: a.q.family, statement: a.q.statement,
+    correct: a.q.answer, said: a.said, source: a.q.source, ...(a.unsure ? { unsure: true } : {}) }));
+  const finish = done => save({ stamp, type: "round", score: score.replace(/ /g, ""), mistakes: done, ...(rested.length ? { rested } : {}) },
     done.filter(d => d.later));
-  if (!queue.length) { show("end"); return save({ stamp, type: "round", score, mistakes: [] }, []); }
+  if (!queue.length) { show("end"); return save({ stamp, type: "round", score: score.replace(/ /g, ""), mistakes: [], ...(rested.length ? { rested } : {}) }, []); }
   explain(queue, finish);
 }
 

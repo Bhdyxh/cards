@@ -63,6 +63,8 @@ button.link { background:none; color:var(--muted); font-weight:400; padding:6px;
 .why { border-top:1px solid var(--line); padding-top:14px; font-size:.97rem; color:#e9dccf; }
 .why p { margin:0 0 8px; } .why ul { margin:0; padding-left:20px; } .why b { color:var(--text); }
 .hint { text-align:center; color:var(--muted); font-size:.85rem; min-height:1.3em; }
+button.unsure { align-self:center; background:none; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:8px 16px; font:500 .88rem system-ui; }
+button.unsure.on { color:var(--accent); border-color:var(--accent); background:rgba(232,162,92,.10); }
 @keyframes pulseOk { 0% { box-shadow:0 0 0 0 rgba(124,196,154,.6); } 100% { box-shadow:0 0 0 16px rgba(124,196,154,0); } }
 @keyframes shake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-7px); } 75% { transform:translateX(7px); } }
 #card.pulse-ok { animation:pulseOk .55s ease-out; } #card.pulse-bad { animation:shake .3s ease-in-out 2; }
